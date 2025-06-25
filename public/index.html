@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DaveBot Chat</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        #chat-box {
+            border: 1px solid #ccc;
+            padding: 1rem;
+            height: 400px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            margin-bottom: 1rem;
+            border-radius: 8px;
+        }
+        #chat-box div {
+            margin: 8px 0;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .user-message {
+            background: #e3f2fd;
+            margin-left: 20%;
+            margin-right: 0;
+        }
+        .bot-message {
+            background: #f5f5f5;
+            margin-right: 20%;
+            margin-left: 0;
+        }
+        .input-container {
+            display: flex;
+            gap: 8px;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        .centered {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="centered">
+        <h1>🤖 DaveBot</h1>
+        <p>Powered by Hugging Face AI</p>
+    </div>
+    <div id="chat-box"></div>
+    <div class="input-container">
+        <input id="user-input" type="text" placeholder="Type your message..." autofocus>
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+
+        function appendMessage(sender, text, isThinking = false) {
+            const msg = document.createElement('div');
+            msg.className = sender === 'You' ? 'user-message' : 'bot-message';
+            if (isThinking) msg.className += ' thinking';
+            const icon = sender === 'You' ? '❓' : '🤖';
+            msg.innerHTML = `<strong>${icon} ${sender}:</strong> ${text}`;
+            chatBox.appendChild(msg);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const userText = input.value.trim();
+            if (!userText) return;
+
+            appendMessage('You', userText);
+            input.value = '';
+            appendMessage('Bot', 'Thinking...', true);
+
+            try {
+                const response = await fetch('/.netlify/functions/chatbot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: userText })
+                });
+                const data = await response.json();
+                chatBox.lastChild.remove(); // remove "Thinking..."
+                appendMessage('Bot', data.reply);
+            } catch (error) {
+                chatBox.lastChild.remove(); // remove "Thinking..."
+                appendMessage('Bot', '⚠️ Sorry, something went wrong. Please try again.');
+            }
+        }
+
+        // Send message when Enter is pressed
+        document.getElementById('user-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
