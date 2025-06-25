@@ -1,0 +1,8 @@
+{
+  "name": "davebot-chatbot",
+  "version": "1.0.0",
+  "description": "DaveBot chatbot powered by Hugging Face",
+  "dependencies": {
+    "node-fetch": "^2.6.1"
+  }
+}
