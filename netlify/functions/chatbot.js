@@ -53,11 +53,24 @@ exports.handler = async (event) => {
     console.error('Error:', err);
   }
 
+  // Estimate tokens (rough approximation - 4 chars per token)
+  const inputTokens = Math.ceil(prompt.length / 4);
+  const outputTokens = Math.ceil(reply.length / 4);
+  const totalTokens = inputTokens + outputTokens;
+
   return {
     statusCode: 200,
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ reply })
+    body: JSON.stringify({
+      reply,
+      tokens: totalTokens,
+      tokenInfo: {
+        input: inputTokens,
+        output: outputTokens,
+        total: totalTokens
+      }
+    })
   };
 };

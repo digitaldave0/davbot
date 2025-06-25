@@ -30,6 +30,36 @@
             padding-bottom: 20px;
             text-shadow: var(--text-glow);
         }
+        
+        .usage-stats {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            font-size: 0.9em;
+            background: rgba(0, 243, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid var(--neon-blue);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-label {
+            color: var(--neon-blue);
+            font-size: 0.8em;
+            margin-bottom: 2px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.1em;
+            text-shadow: var(--text-glow);
+        }
 
         #chat-box {
             height: 400px;
@@ -161,6 +191,20 @@
     <div class="header">
         <h1>🤖 DaveBot</h1>
         <p>AI-Powered Chat Interface</p>
+        <div class="usage-stats">
+            <div class="stat-item">
+                <span class="stat-label">Tokens Used:</span>
+                <span id="token-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Messages:</span>
+                <span id="message-count" class="stat-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Session Started:</span>
+                <span id="session-time" class="stat-value">Just Now</span>
+            </div>
+        </div>
     </div>
 
     <div id="chat-box"></div>
@@ -256,6 +300,38 @@
 
     <script>
         const chatBox = document.getElementById('chat-box');
+        const tokenCount = document.getElementById('token-count');
+        const messageCount = document.getElementById('message-count');
+        const sessionTime = document.getElementById('session-time');
+        
+        // Initialize session data
+        let totalTokens = 0;
+        let totalMessages = 0;
+        const sessionStartTime = new Date();
+        
+        // Update session time every minute
+        function updateSessionTime() {
+            const now = new Date();
+            const diff = now - sessionStartTime;
+            const minutes = Math.floor(diff / 60000);
+            
+            if (minutes < 1) {
+                sessionTime.textContent = 'Just Now';
+            } else if (minutes < 60) {
+                sessionTime.textContent = `${minutes}m ago`;
+            } else {
+                const hours = Math.floor(minutes / 60);
+                sessionTime.textContent = `${hours}h ${minutes % 60}m ago`;
+            }
+        }
+        
+        setInterval(updateSessionTime, 60000);
+        
+        function updateStats(newTokens = 0) {
+            totalTokens += newTokens;
+            tokenCount.textContent = totalTokens.toLocaleString();
+            messageCount.textContent = totalMessages.toLocaleString();
+        }
 
         function appendMessage(sender, text, isThinking = false) {
             const msg = document.createElement('div');
@@ -285,6 +361,8 @@
                 const data = await response.json();
                 chatBox.lastChild.remove(); // remove "Processing..."
                 appendMessage('Bot', data.reply);
+                totalMessages += 1;
+                updateStats(data.tokens || 0);
             } catch (error) {
                 chatBox.lastChild.remove(); // remove "Processing..."
                 appendMessage('Bot', '⚠️ Something went wrong. Please try again.');
