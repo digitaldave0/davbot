@@ -185,12 +185,43 @@
         a:hover {
             text-shadow: var(--text-glow);
         }
+        
+        .demo-link {
+            margin: 20px 0;
+        }
+        
+        .live-demo-button {
+            display: inline-block;
+            background: linear-gradient(45deg, var(--neon-blue), var(--robot-gray));
+            color: var(--dark-bg);
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+            border: 2px solid var(--neon-blue);
+            text-shadow: none;
+        }
+        
+        .live-demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px var(--neon-blue);
+            background: var(--dark-bg);
+            color: var(--neon-blue);
+            text-shadow: var(--text-glow);
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🤖 DaveBot</h1>
         <p>AI-Powered Chat Interface</p>
+        <div class="demo-link">
+            <a href="https://685c15ab20f6a100080ad1af--funny-bienenstitch-0c3a88.netlify.app/" target="_blank" class="live-demo-button">
+                🚀 Try Live Demo
+            </a>
+        </div>
         <div class="usage-stats">
             <div class="stat-item">
                 <span class="stat-label">Tokens Used:</span>
