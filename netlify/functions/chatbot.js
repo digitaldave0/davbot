@@ -4,10 +4,10 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "google/flan-t5-small";  // Changed to a free-tier compatible model
+  const model = "facebook/opt-125m";  // Changed to a more reliable free-tier model
 
-  // Format prompt for T5 model (simpler format than Mixtral)
-  const systemPrompt = prompt;  // T5 doesn't need special formatting
+  // Format prompt for the model
+  const systemPrompt = `Human: ${prompt}\nAssistant:`;
 
   let reply = '🤖 No response.';
   try {
@@ -26,8 +26,16 @@ exports.handler = async (event) => {
       }
     );
     clearTimeout(timeout);
-    if (response.status === 404) {
-      reply = '⚠️ Model not available on free tier. Please check your Hugging Face API key permissions.';
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('API Error:', response.status, errorData);
+      if (response.status === 401) {
+        reply = '⚠️ Invalid API key. Please check your Hugging Face API key.';
+      } else if (response.status === 404) {
+        reply = '⚠️ Model not found. Please try again later.';
+      } else {
+        reply = `⚠️ API Error (${response.status}): ${errorData.error || 'Unknown error'}`;
+      }
     } else {
       const data = await response.json();
       console.log("Raw Hugging Face response:", data);
