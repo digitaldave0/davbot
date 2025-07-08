@@ -6,15 +6,15 @@ exports.handler = async (event) => {
   const HF_API_KEY = process.env.HF_API_KEY;
   const models = [
     {
-      name: "EleutherAI/gpt-neo-1.3B",
+      name: "togethercomputer/RedPajama-INCITE-7B-Chat",
       provider: "togetherai"
     },
     {
-      name: "EleutherAI/gpt-neo-2.7B",
+      name: "togethercomputer/RedPajama-INCITE-3B-Chat",
       provider: "togetherai"
     },
     {
-      name: "EleutherAI/gpt-neo-125M",
+      name: "facebook/opt-350m",
       provider: "default"
     }
   ];
