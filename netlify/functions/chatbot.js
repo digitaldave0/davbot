@@ -4,10 +4,10 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "distilgpt2";  // Using DistilGPT-2, a more reliably hosted model
+  const model = "google/flan-t5-small";  // Changed to a reliably available model
 
-  // Format prompt for GPT-2
-  const systemPrompt = `Human: ${prompt}\nAssistant:`;
+  // Format prompt for T5 model (simpler format)
+  const systemPrompt = prompt;  // T5 doesn't need special formatting
 
   let reply = '🤖 No response.';
   try {
@@ -18,9 +18,8 @@ exports.handler = async (event) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 9000);
     
-    // Using the model's full path in the API URL
     const response = await fetch(
-      `https://api-inference.huggingface.co/models/distilgpt2`,
+      `https://api-inference.huggingface.co/models/${model}`,
       {
         headers: {
           Authorization: `Bearer ${HF_API_KEY}`,
@@ -30,9 +29,9 @@ exports.handler = async (event) => {
         body: JSON.stringify({ 
           inputs: systemPrompt,
           parameters: {
-            max_new_tokens: 100,
+            max_length: 100,
             temperature: 0.7,
-            return_full_text: false
+            do_sample: true
           }
         }),
         signal: controller.signal
