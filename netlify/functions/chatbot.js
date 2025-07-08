@@ -4,7 +4,10 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "Helsinki-NLP/opus-mt-en-en";  // Using a simpler, more reliable model
+  const model = "EleutherAI/gpt-j-6B";  // Using GPT-J-6B model
+
+  // Format prompt for GPT-J
+  const systemPrompt = `Human: ${prompt}\nAssistant:`;
 
   let reply = '🤖 No response.';
   try {
@@ -24,9 +27,16 @@ exports.handler = async (event) => {
         },
         method: 'POST',
         body: JSON.stringify({ 
-          inputs: prompt,
+          inputs: systemPrompt,
+          parameters: {
+            max_new_tokens: 150,
+            temperature: 0.7,
+            top_p: 0.9,
+            return_full_text: false
+          },
           options: {
-            wait_for_model: true
+            wait_for_model: true,
+            use_cache: true
           }
         }),
         signal: controller.signal
@@ -59,16 +69,18 @@ exports.handler = async (event) => {
       const data = await response.json();
       console.log("Raw Hugging Face response:", data);
       
-      if (Array.isArray(data)) {
-        reply = data[0];  // Translation models return direct text
-      } else if (typeof data === 'string') {
-        reply = data;
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        reply = data[0].generated_text;
+      } else if (data.generated_text) {
+        reply = data.generated_text;
       } else if (data.error) {
         reply = `⚠️ API Error: ${data.error}`;
       }
       
       if (reply) {
-        reply = reply.trim();
+        // Clean up the response - remove prompt and special tokens
+        reply = reply.replace(systemPrompt, '').trim();
+        reply = reply.replace(/<\/s>$/, '').trim();
       }
     }
   } catch (err) {
