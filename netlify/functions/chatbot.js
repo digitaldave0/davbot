@@ -4,92 +4,98 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "EleutherAI/gpt-neo-1.3B";  // Using GPT-Neo-1.3B model
-
-  // Format prompt for GPT-Neo
-  const systemPrompt = `Human: ${prompt}\nAssistant:`;
+  const models = [
+    "EleutherAI/gpt-neo-1.3B",
+    "EleutherAI/gpt-neo-2.7B",
+    "EleutherAI/gpt-neo-125M"
+  ];
 
   let reply = '🤖 No response.';
-  try {
-    console.log('Making request to Hugging Face API...');
-    console.log('Model:', model);
-    console.log('API Key present:', !!HF_API_KEY);
+  let lastError = null;
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9000);
-    
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        headers: {
-          Authorization: `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        method: 'POST',
-        body: JSON.stringify({ 
-          inputs: systemPrompt,
-          parameters: {
-            max_new_tokens: 150,
-            temperature: 0.7,
-            top_p: 0.9,
-            return_full_text: false
-          },
-          options: {
-            wait_for_model: true,
-            use_cache: true
-          }
-        }),
-        signal: controller.signal
-      }
-    );
+  for (const model of models) {
+    try {
+      console.log('Making request to Hugging Face API...');
+      console.log('Trying model:', model);
+      console.log('API Key present:', !!HF_API_KEY);
 
-    clearTimeout(timeout);
-    console.log('Response status:', response.status);
-    console.log('Response headers:', [...response.headers.entries()]);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-      let errorData = {};
-      try {
-        errorData = JSON.parse(errorText);
-      } catch (e) {
-        console.error('Failed to parse error response as JSON');
-      }
-      console.error('API Error:', response.status, errorData);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 9000);
       
-      if (response.status === 401) {
-        reply = '⚠️ Invalid API key. Please check your Hugging Face API key.';
-      } else if (response.status === 404) {
-        reply = '⚠️ Model not found. Please try again later.';
-      } else {
-        reply = `⚠️ API Error (${response.status}): ${errorData.error || errorText || 'Unknown error'}`;
+      const response = await fetch(
+        `https://api-inference.huggingface.co/models/${model}`,
+        {
+          headers: {
+            Authorization: `Bearer ${HF_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          method: 'POST',
+          body: JSON.stringify({ 
+            inputs: `Human: ${prompt}\nAssistant:`,
+            parameters: {
+              max_new_tokens: 150,
+              temperature: 0.7,
+              top_p: 0.9,
+              return_full_text: false
+            },
+            options: {
+              wait_for_model: true,
+              use_cache: true
+            }
+          }),
+          signal: controller.signal
+        }
+      );
+
+      clearTimeout(timeout);
+      console.log(`Response status for ${model}:`, response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error Response for ${model}:`, errorText);
+        
+        if (response.status === 401) {
+          reply = '⚠️ Invalid API key. Please check your Hugging Face API key.';
+          break;  // Don't try other models if the key is invalid
+        } else if (response.status === 404) {
+          lastError = `Model ${model} not found`;
+          continue;  // Try next model
+        } else {
+          throw new Error(errorText || 'Unknown error');
+        }
       }
-    } else {
+
       const data = await response.json();
-      console.log("Raw Hugging Face response:", data);
+      console.log(`Raw response from ${model}:`, data);
       
       if (Array.isArray(data) && data[0]?.generated_text) {
         reply = data[0].generated_text;
       } else if (data.generated_text) {
         reply = data.generated_text;
       } else if (data.error) {
-        reply = `⚠️ API Error: ${data.error}`;
+        throw new Error(data.error);
       }
       
-      if (reply) {
-        // Clean up the response - remove prompt and special tokens
-        reply = reply.replace(systemPrompt, '').trim();
+      // If we got a valid response, clean it up and break the loop
+      if (reply && reply !== '🤖 No response.') {
+        reply = reply.replace(`Human: ${prompt}\nAssistant:`, '').trim();
         reply = reply.replace(/<\/s>$/, '').trim();
+        console.log(`Successfully used model: ${model}`);
+        break;
       }
+    } catch (err) {
+      console.error(`Error with ${model}:`, err);
+      lastError = err.message;
+      if (err.name === 'AbortError' || err.message.includes('404')) {
+        continue;  // Try next model on timeout or 404
+      }
+      // For other errors, try next model but keep the error message
     }
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      reply = '⚠️ Model is loading or slow. Please try again in a few seconds.';
-    } else {
-      reply = `⚠️ Error: ${err.message}`;
-    }
-    console.error('Error:', err);
+  }
+
+  // If no models worked, use the last error
+  if (reply === '🤖 No response.' && lastError) {
+    reply = `⚠️ All models failed. Last error: ${lastError}`;
   }
 
   // Estimate tokens (rough approximation - 4 chars per token)
