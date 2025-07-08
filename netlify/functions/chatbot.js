@@ -3,114 +3,77 @@ const fetch = require('node-fetch');
 exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
-  const HF_API_KEY = process.env.HF_API_KEY;
-  const models = [
-    {
-      name: "deepseek-ai/DeepSeek-R1",
-      provider: "togetherai"
-    },
-    {
-      name: "tiiuae/falcon-rw-1b",
-      provider: "default"
-    },
-    {
-      name: "HuggingFaceH4/zephyr-7b-beta",
-      provider: "default"
-    }
-  ];
+  const TOGETHER_API_KEY = process.env.TOGETHER_API_KEY;
+  const model = "deepseek-ai/DeepSeek-V3";
 
   let reply = '🤖 No response.';
   let lastError = null;
 
-  for (const model of models) {
-    try {
-      console.log('Making request to API...');
-      console.log('Trying model:', model.name);
-      console.log('Using provider:', model.provider);
-      console.log('API Key present:', !!HF_API_KEY);
+  try {
+    console.log('Making request to Together API...');
+    console.log('Using model:', model);
+    console.log('API Key present:', !!TOGETHER_API_KEY);
 
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 9000);
-      
-      // Build the API URL based on the provider
-      const baseUrl = model.provider === 'togetherai' 
-        ? `https://api-inference.huggingface.co/providers/togetherai/models/${model.name}`
-        : `https://api-inference.huggingface.co/models/${model.name}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
 
-      const response = await fetch(
-        baseUrl,
-        {
-          headers: {
-            Authorization: `Bearer ${HF_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          method: 'POST',
-          body: JSON.stringify({ 
-            inputs: `Human: ${prompt}\nAssistant:`,
-            parameters: {
-              max_new_tokens: 150,
-              temperature: 0.7,
-              top_p: 0.9,
-              return_full_text: false
-            },
-            options: {
-              wait_for_model: true,
-              use_cache: true
-            }
-          }),
-          signal: controller.signal
-        }
-      );
-
-      clearTimeout(timeout);
-      console.log(`Response status for ${model.name}:`, response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error Response for ${model.name}:`, errorText);
-        
-        if (response.status === 401) {
-          reply = '⚠️ Invalid API key. Please check your Hugging Face API key.';
-          break;  // Don't try other models if the key is invalid
-        } else if (response.status === 404) {
-          lastError = `Model ${model.name} not found`;
-          continue;  // Try next model
-        } else {
-          throw new Error(errorText || 'Unknown error');
-        }
+    const response = await fetch(
+      'https://api.together.xyz/v1/chat/completions',
+      {
+        headers: {
+          Authorization: `Bearer ${TOGETHER_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        method: 'POST',
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 150,
+          temperature: 0.7,
+          top_p: 0.9,
+          stop: null
+        }),
+        signal: controller.signal
       }
+    );
 
+    clearTimeout(timeout);
+    console.log(`Response status:`, response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API Error Response:`, errorText);
+
+      if (response.status === 401) {
+        reply = '⚠️ Invalid API key. Please check your Together API key.';
+      } else if (response.status === 404) {
+        lastError = `Model ${model} not found`;
+      } else {
+        throw new Error(errorText || 'Unknown error');
+      }
+    } else {
       const data = await response.json();
-      console.log(`Raw response from ${model.name}:`, data);
-      
-      if (Array.isArray(data) && data[0]?.generated_text) {
-        reply = data[0].generated_text;
-      } else if (data.generated_text) {
-        reply = data.generated_text;
+      console.log(`Raw response:`, data);
+
+      // Together API response typically has choices array with message content
+      if (data.choices && Array.isArray(data.choices) && data.choices[0]?.message?.content) {
+        reply = data.choices[0].message.content.trim();
       } else if (data.error) {
         throw new Error(data.error);
+      } else {
+        lastError = 'Unexpected response format from Together API';
       }
-      
-      // If we got a valid response, clean it up and break the loop
-      if (reply && reply !== '🤖 No response.') {
-        reply = reply.replace(`Human: ${prompt}\nAssistant:`, '').trim();
-        reply = reply.replace(/<\/s>$/, '').trim();
-        console.log(`Successfully used model: ${model.name} with provider: ${model.provider}`);
-        break;
-      }
-    } catch (err) {
-      console.error(`Error with ${model.name}:`, err);
-      lastError = err.message;
-      if (err.name === 'AbortError' || err.message.includes('404')) {
-        continue;  // Try next model on timeout or 404
-      }
-      // For other errors, try next model but keep the error message
     }
+  } catch (err) {
+    console.error(`Error with model ${model}:`, err);
+    lastError = err.message;
   }
 
-  // If no models worked, use the last error
+  // If no valid reply and lastError exists, set reply accordingly
   if (reply === '🤖 No response.' && lastError) {
-    reply = `⚠️ All models failed. Last error: ${lastError}`;
+    reply = `⚠️ Model failed. Last error: ${lastError}`;
   }
 
   // Estimate tokens (rough approximation - 4 chars per token)
