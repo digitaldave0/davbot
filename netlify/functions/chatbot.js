@@ -6,15 +6,15 @@ exports.handler = async (event) => {
   const HF_API_KEY = process.env.HF_API_KEY;
   const models = [
     {
-      name: "togethercomputer/RedPajama-INCITE-7B-Chat",
+      name: "deepseek-ai/DeepSeek-R1",
       provider: "togetherai"
     },
     {
-      name: "togethercomputer/RedPajama-INCITE-3B-Chat",
-      provider: "togetherai"
+      name: "tiiuae/falcon-rw-1b",
+      provider: "default"
     },
     {
-      name: "facebook/opt-350m",
+      name: "HuggingFaceH4/zephyr-7b-beta",
       provider: "default"
     }
   ];
