@@ -4,10 +4,7 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "google/flan-t5-small";  // Changed to a reliably available model
-
-  // Format prompt for T5 model (simpler format)
-  const systemPrompt = prompt;  // T5 doesn't need special formatting
+  const model = "Helsinki-NLP/opus-mt-en-en";  // Using a simpler, more reliable model
 
   let reply = '🤖 No response.';
   try {
@@ -27,11 +24,9 @@ exports.handler = async (event) => {
         },
         method: 'POST',
         body: JSON.stringify({ 
-          inputs: systemPrompt,
-          parameters: {
-            max_length: 100,
-            temperature: 0.7,
-            do_sample: true
+          inputs: prompt,
+          options: {
+            wait_for_model: true
           }
         }),
         signal: controller.signal
@@ -64,17 +59,16 @@ exports.handler = async (event) => {
       const data = await response.json();
       console.log("Raw Hugging Face response:", data);
       
-      if (Array.isArray(data) && data[0]?.generated_text) {
-        reply = data[0].generated_text;
-      } else if (data.generated_text) {
-        reply = data.generated_text;
+      if (Array.isArray(data)) {
+        reply = data[0];  // Translation models return direct text
+      } else if (typeof data === 'string') {
+        reply = data;
       } else if (data.error) {
         reply = `⚠️ API Error: ${data.error}`;
       }
       
       if (reply) {
-        reply = reply.replace(systemPrompt, '').trim();
-        reply = reply.replace(/<\/s>$/, '').trim();
+        reply = reply.trim();
       }
     }
   } catch (err) {
