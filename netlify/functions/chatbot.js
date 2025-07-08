@@ -4,9 +4,9 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "EleutherAI/gpt-j-6B";  // Using GPT-J-6B model
+  const model = "EleutherAI/gpt-neo-1.3B";  // Using GPT-Neo-1.3B model
 
-  // Format prompt for GPT-J
+  // Format prompt for GPT-Neo
   const systemPrompt = `Human: ${prompt}\nAssistant:`;
 
   let reply = '🤖 No response.';
