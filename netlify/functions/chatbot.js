@@ -4,15 +4,20 @@ exports.handler = async (event) => {
   const { prompt } = JSON.parse(event.body || '{}');
 
   const HF_API_KEY = process.env.HF_API_KEY;
-  const model = "facebook/opt-125m";  // Changed to a more reliable free-tier model
+  const model = "gpt2";  // Using the most basic and reliable model
 
-  // Format prompt for the model
+  // Format prompt for GPT-2
   const systemPrompt = `Human: ${prompt}\nAssistant:`;
 
   let reply = '🤖 No response.';
   try {
+    console.log('Making request to Hugging Face API...');
+    console.log('Model:', model);
+    console.log('API Key present:', !!HF_API_KEY);
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9000); // 9s timeout for Netlify free tier
+    const timeout = setTimeout(() => controller.abort(), 9000);
+    
     const response = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
       {
@@ -25,20 +30,33 @@ exports.handler = async (event) => {
         signal: controller.signal
       }
     );
+
     clearTimeout(timeout);
+    console.log('Response status:', response.status);
+    console.log('Response headers:', [...response.headers.entries()]);
+    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      let errorData = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        console.error('Failed to parse error response as JSON');
+      }
       console.error('API Error:', response.status, errorData);
+      
       if (response.status === 401) {
         reply = '⚠️ Invalid API key. Please check your Hugging Face API key.';
       } else if (response.status === 404) {
         reply = '⚠️ Model not found. Please try again later.';
       } else {
-        reply = `⚠️ API Error (${response.status}): ${errorData.error || 'Unknown error'}`;
+        reply = `⚠️ API Error (${response.status}): ${errorData.error || errorText || 'Unknown error'}`;
       }
     } else {
       const data = await response.json();
       console.log("Raw Hugging Face response:", data);
+      
       if (Array.isArray(data) && data[0]?.generated_text) {
         reply = data[0].generated_text;
       } else if (data.generated_text) {
@@ -46,7 +64,7 @@ exports.handler = async (event) => {
       } else if (data.error) {
         reply = `⚠️ API Error: ${data.error}`;
       }
-      // Clean up the response - remove prompt and special tokens
+      
       if (reply) {
         reply = reply.replace(systemPrompt, '').trim();
         reply = reply.replace(/<\/s>$/, '').trim();
